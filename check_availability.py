@@ -308,8 +308,11 @@ async def scrape_bookeo(page: Page, url: str) -> list[dict]:
             rooms.setdefault(current_room, {"status": "AVAILABLE", "times": []})
         elif line in date_labels and current_room:
             j = i + 1
-            while j < len(lines) and is_time(lines[j]):
-                rooms[current_room]["times"].append(lines[j])
+            while j < len(lines) and (is_time(lines[j]) or lines[j] == "FULL"):
+                if is_time(lines[j]):
+                    # Only add if next line isn't "FULL"
+                    if j + 1 >= len(lines) or lines[j + 1] != "FULL":
+                        rooms[current_room]["times"].append(lines[j])
                 j += 1
             i = j
             continue
@@ -326,7 +329,7 @@ async def scrape_bookeo(page: Page, url: str) -> list[dict]:
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-KEYSTONE_URL = "https://www-1577h.bookeo.com/bookeo/b_keystoneescapegames_start.html"
+KEYSTONE_URL = "https://bookeo.com/keystoneescapegames"
 
 MAX_PARALLEL = max(1, math.floor((os.cpu_count() or 4) * 0.6))
 
