@@ -1,10 +1,19 @@
 #!/usr/bin/env python3
 """Check escape room availability and time slots across Reno/Sparks venues."""
 
+import argparse
 import asyncio
+import math
+import os
 import re
 from datetime import date
 from playwright.async_api import async_playwright, Page
+from rich.console import Console
+from rich.table import Table
+from rich import box
+from rich.text import Text
+
+console = Console(highlight=False)
 
 TARGET_DATE = date.today()
 DATE_STR = TARGET_DATE.strftime("%Y%m%d")      # 20260418
@@ -206,31 +215,76 @@ async def scrape_fareharbor(page: Page, shortname: str, flow: str = None) -> lis
 
 # ── Print helpers ─────────────────────────────────────────────────────────────
 
-def print_venue(venue_name: str, rooms: list[dict]):
-    print(f"\n{'─' * 72}")
-    print(f"  {venue_name}")
-    print(f"{'─' * 72}")
+STATUS_STYLE = {
+    "AVAILABLE": "bold green",
+    "SOLD OUT": "bold red",
+    "NO AVAILABILITY TODAY": "yellow",
+}
+
+
+def print_venue(venue_name: str, booking_url: str, rooms: list[dict]):
+    table = Table(
+        title=f"[bold]{venue_name}[/bold]",
+        title_justify="left",
+        box=box.SIMPLE_HEAVY,
+        show_lines=False,
+        expand=False,
+        min_width=72,
+    )
+    table.add_column("Room", style="white", no_wrap=True, min_width=30)
+    table.add_column("Status", no_wrap=True, min_width=22)
+    table.add_column("Time Slots")
+
     for r in rooms:
-        times = ", ".join(r["times"]) if r["times"] else "—"
-        print(f"  {r['room']:<34} {r['status']:<24} {times}")
+        status_style = STATUS_STYLE.get(r["status"], "white")
+        status_cell = Text(r["status"], style=status_style)
+
+        if r["times"]:
+            slots = Text()
+            for i, t in enumerate(r["times"]):
+                if i:
+                    slots.append("  ")
+                slots.append(t, style=f"link {booking_url}")
+            time_cell = slots
+        else:
+            time_cell = Text("—", style="dim")
+
+        table.add_row(r["room"], status_cell, time_cell)
+
+    console.print()
+    console.print(table)
 
 
-def print_manual(venue_name: str, note: str, url: str = None, phone: str = None):
-    print(f"\n{'─' * 72}")
-    print(f"  {venue_name}")
-    print(f"{'─' * 72}")
-    print(f"  {note}")
-    if url:
-        print(f"  Book: {url}")
+def print_manual(venue_name: str, note: str, phone: str = None):
+    table = Table(
+        title=f"[bold]{venue_name}[/bold]",
+        title_justify="left",
+        box=box.SIMPLE_HEAVY,
+        show_lines=False,
+        expand=False,
+        min_width=72,
+    )
+    table.add_column("Note")
+    cell = Text(note, style="dim italic")
     if phone:
-        print(f"  Phone: {phone}")
+        cell.append("  ")
+        tel = "tel:" + re.sub(r"[^\d+]", "", phone)
+        cell.append(phone, style=f"link {tel}")
+    table.add_row(cell)
+    console.print()
+    console.print(table)
 
 
 # ── Bookeo scraper ────────────────────────────────────────────────────────────
 
 async def scrape_bookeo(page: Page, url: str) -> list[dict]:
     """Returns list of {room, status, times} for a Bookeo venue (requires non-headless)."""
-    await goto(page, url, timeout=25000)
+    await goto(page, url, timeout=30000)
+    # Wait for room listing to render (JS-heavy under parallel load)
+    try:
+        await page.wait_for_selector("text=1 hour", timeout=15000)
+    except Exception:
+        pass
 
     text = await page.evaluate("() => document.body.innerText")
     if "verify you're not a robot" in text:
@@ -240,17 +294,19 @@ async def scrape_bookeo(page: Page, url: str) -> list[dict]:
 
     rooms: dict[str, dict] = {}
     current_room = None
-    date_label = TARGET_DATE.strftime("%a, %B %-d, %Y")  # Sat, April 18, 2026
+    # Bookeo uses "Sat, April 18, 2026" style — try both %-d and %d variants
+    date_labels = {
+        TARGET_DATE.strftime("%a, %B %-d, %Y"),
+        TARGET_DATE.strftime("%a, %B %d, %Y"),
+    }
 
     i = 0
     while i < len(lines):
         line = lines[i]
-        # Room headings are long descriptive titles before "1 hour" duration
         if i + 1 < len(lines) and lines[i + 1] in ("1 hour", "60 min", "1 Hour"):
             current_room = line
             rooms.setdefault(current_room, {"status": "AVAILABLE", "times": []})
-        elif line == date_label and current_room:
-            # Times follow the date label
+        elif line in date_labels and current_room:
             j = i + 1
             while j < len(lines) and is_time(lines[j]):
                 rooms[current_room]["times"].append(lines[j])
@@ -270,82 +326,107 @@ async def scrape_bookeo(page: Page, url: str) -> list[dict]:
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+KEYSTONE_URL = "https://www-1577h.bookeo.com/bookeo/b_keystoneescapegames_start.html"
+
+MAX_PARALLEL = max(1, math.floor((os.cpu_count() or 4) * 0.6))
+
+VENUES = [
+    ("Puzzle Room Reno",                         "https://puzzleroom.checkfront.com/reserve/"),
+    ("Break Through Reno",                        "https://gsr.breakthroughreno.com/book-now"),
+    ("Sensology",                                 "https://sensologyreno.com/book-now"),
+    ("Key & Code — Sparks / Outlets at Legends",  "https://fareharbor.com/embeds/book/keyandcode/?full-items=yes&flow=1587088"),
+    ("Key & Code — South Reno / Summit Mall",     "https://fareharbor.com/embeds/book/keyandcode/?full-items=yes&flow=1587108"),
+    ("Key & Code — Reno / Costco Center",         "https://fareharbor.com/embeds/book/keyandcode/?full-items=yes&flow=1587113"),
+    ("Deadline Escape Rooms",                     "https://fareharbor.com/embeds/book/deadlineescape/?full-items=yes"),
+    ("Keystone Escape Games",                     KEYSTONE_URL),
+]
+
+
+_sem: asyncio.Semaphore | None = None
+
+
+async def run(context, fn, *args, **kwargs) -> list[dict]:
+    """Spin up a fresh page, run a scraper, close the page. Respects semaphore if set."""
+    async def _execute():
+        page = await context.new_page()
+        await page.add_init_script(
+            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+        )
+        try:
+            return await fn(page, *args, **kwargs)
+        except Exception as e:
+            return [{"room": "ERROR", "status": str(e)[:60], "times": []}]
+        finally:
+            await page.close()
+
+    if _sem:
+        async with _sem:
+            return await _execute()
+    return await _execute()
+
+
+SCRAPERS = [
+    (scrape_checkfront, ("puzzleroom",),           {}),
+    (scrape_checkfront, ("breakthroughrenoesca",),  {"category_id": "5"}),
+    (scrape_checkfront, ("sensology",),             {}),
+    (scrape_fareharbor, ("keyandcode",),            {"flow": "1587088"}),
+    (scrape_fareharbor, ("keyandcode",),            {"flow": "1587108"}),
+    (scrape_fareharbor, ("keyandcode",),            {"flow": "1587113"}),
+    (scrape_fareharbor, ("deadlineescape",),        {}),
+    (scrape_bookeo,     (KEYSTONE_URL,),            {}),
+]
+
+
 async def main():
-    print(f"\nReno / Sparks Escape Room Availability — {DATE_LABEL}")
+    global _sem
+
+    parser = argparse.ArgumentParser(description="Reno/Sparks escape room availability checker")
+    parser.add_argument(
+        "--parallel", action="store_true",
+        help=f"Scrape all venues concurrently (max {MAX_PARALLEL} of {os.cpu_count()} cores)",
+    )
+    args = parser.parse_args()
+
+    mode = f"parallel (≤{MAX_PARALLEL} cores)" if args.parallel else "sequential"
+    console.print(f"\n[bold]Reno / Sparks Escape Room Availability — {DATE_LABEL}[/bold]")
+    console.print(f"[dim]Mode: {mode}[/dim]")
 
     async with async_playwright() as p:
-        # Non-headless + real UA needed to bypass Bookeo's bot detection
         browser = await p.chromium.launch(
             headless=False,
             args=["--disable-blink-features=AutomationControlled"],
         )
         context = await browser.new_context(
-            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            user_agent=(
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            ),
             viewport={"width": 1280, "height": 800},
             locale="en-US",
         )
-        page = await context.new_page()
-        await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
-        # ── CHECKFRONT VENUES ─────────────────────────────────────────────
-
-        print_venue(
-            "Puzzle Room Reno  [puzzleroomreno.com]",
-            await scrape_checkfront(page, "puzzleroom"),
-        )
-
-        print_venue(
-            "Break Through Reno  [gsr.breakthroughreno.com]",
-            await scrape_checkfront(page, "breakthroughrenoesca", category_id="5"),
-        )
-
-        print_venue(
-            "Sensology  [sensologyreno.com]",
-            await scrape_checkfront(page, "sensology"),
-        )
-
-        # ── FAREHARBOR VENUES ─────────────────────────────────────────────
-
-        print_venue(
-            "Key & Code — Sparks / Outlets at Legends  [keyandcode.com]",
-            await scrape_fareharbor(page, "keyandcode", flow="1587088"),
-        )
-
-        print_venue(
-            "Key & Code — South Reno / Summit Mall  [keyandcode.com]",
-            await scrape_fareharbor(page, "keyandcode", flow="1587108"),
-        )
-
-        print_venue(
-            "Key & Code — Reno / Costco Center  [keyandcode.com]",
-            await scrape_fareharbor(page, "keyandcode", flow="1587113"),
-        )
-
-        print_venue(
-            "Deadline Escape Rooms  [deadlineescaperooms.com]",
-            await scrape_fareharbor(page, "deadlineescape"),
-        )
-
-        # ── BOOKEO VENUES ─────────────────────────────────────────────────
-
-        print_venue(
-            "Keystone Escape Games  [escaperoomreno.net]",
-            await scrape_bookeo(page, "https://www-1577h.bookeo.com/bookeo/b_keystoneescapegames_start.html?ctlsrc2=atyT9dSDYLQ%2B9I1vhYMqLxtemXgkbM5NnpctjGO%2Fm%2B8%3D&src=02j"),
-        )
-
-        # ── MANUAL VENUE ──────────────────────────────────────────────────
-
-        print_manual(
-            "Brainy Actz Escape Rooms  [brainyactzescaperooms.com]",
-            "Resova widget only offers gift vouchers — escape rooms require phone booking.",
-            phone="(775) 225-2320",
-        )
+        if args.parallel:
+            _sem = asyncio.Semaphore(MAX_PARALLEL)
+            results = await asyncio.gather(
+                *[run(context, fn, *a, **kw) for fn, a, kw in SCRAPERS]
+            )
+        else:
+            results = []
+            for fn, a, kw in SCRAPERS:
+                results.append(await run(context, fn, *a, **kw))
 
         await browser.close()
 
-    print(f"\n{'═' * 72}")
-    print(f"  Checked: {DATE_LABEL}")
-    print(f"{'═' * 72}\n")
+    for (name, url), rooms in zip(VENUES, results):
+        print_venue(name, url, rooms)
+
+    print_manual(
+        "Brainy Actz Escape Rooms",
+        "No online booking for rooms — call to reserve.",
+        phone="(775) 225-2320",
+    )
+
+    console.print(f"\n[dim]Checked: {DATE_LABEL}[/dim]\n")
 
 
 if __name__ == "__main__":
