@@ -353,17 +353,19 @@ def print_all_venues(
 
 # ── Bookeo scraper ────────────────────────────────────────────────────────────
 
+_BOOKEO_DURATIONS = re.compile(r"^(\d+\s*(?:hour|min|hr|m|Hour|Min|Hour|min|Hour|Min|Hour|Min|Hour|Min))", re.IGNORECASE)
+
 async def scrape_bookeo(page: Page, target_date: date, url: str) -> list[dict]:
     """Returns list of {room, status, times} for a Bookeo venue."""
     await goto(page, url, timeout=30000)
     # Wait for room listing to render (JS-heavy under parallel load)
     try:
-        await page.wait_for_selector(".bookeo_items_list", timeout=15000)
+        await page.wait_for_selector(".bookeo_items_list, .bookeo_item", timeout=15000)
     except Exception:
         pass
 
     text = await page.evaluate("() => document.body.innerText")
-    if "verify you're not a robot" in text:
+    if "verify you're not a robot" in text.lower():
         return [{"room": "—", "status": "BOT CHECK — run non-headless", "times": []}]
 
     lines = [l.strip() for l in text.splitlines() if l.strip()]
@@ -371,42 +373,55 @@ async def scrape_bookeo(page: Page, target_date: date, url: str) -> list[dict]:
     rooms: dict[str, dict] = {}
     current_room = None
     
-    # Bookeo uses "Sat, May 16, 2026" style
-    target_date_label = target_date.strftime("%a, %B %-d, %Y")
-    target_date_label_alt = target_date.strftime("%a, %B %d, %Y")
+    # Bookeo uses "Sat, May 16, 2026" or "Saturday, May 16, 2026" or "Sat 16 May"
+    # We will build a few patterns
+    target_patterns = [
+        target_date.strftime("%a, %B %-d, %Y"),
+        target_date.strftime("%a, %B %d, %Y"),
+        target_date.strftime("%A, %B %-d, %Y"),
+        target_date.strftime("%B %-d, %Y"),
+        target_date.strftime("%a, %b %-d"),
+    ]
 
     i = 0
     while i < len(lines):
         line = lines[i]
-        # Bookeo rooms often have "1 hour" or "60 min" duration listed right after the name
-        if i + 1 < len(lines) and lines[i + 1] in ("1 hour", "60 min", "1 Hour", "75 min", "90 min"):
-            room_label = line
-            # If the line is too long, it might be a description, look one line back
-            if len(line) > 55 and i > 0 and len(lines[i-1]) < 55:
-                room_label = lines[i-1]
-            elif len(line) > 55:
-                # If both current and previous are long, try to truncate or find another candidate
-                room_label = line.split('.')[0].split('!')[0].split('?')[0][:50].strip()
-            
-            current_room = room_label
-            rooms.setdefault(current_room, {"status": "AVAILABLE", "times": []})
         
-        elif (line == target_date_label or line == target_date_label_alt) and current_room:
+        # Check if this line looks like a room duration (meaning the line above was likely the room name)
+        is_duration = _BOOKEO_DURATIONS.search(line) or (i + 1 < len(lines) and _BOOKEO_DURATIONS.search(lines[i+1]))
+        
+        if is_duration and not any(p in line for p in target_patterns):
+            # If the next line is the duration, current line is the room
+            if i + 1 < len(lines) and _BOOKEO_DURATIONS.search(lines[i+1]):
+                room_label = line
+            else:
+                # This line itself is the duration, room was likely previous line
+                room_label = lines[i-1] if i > 0 else "Unknown Room"
+
+            # Clean up room label if it's too long
+            if len(room_label) > 60:
+                room_label = room_label.split('.')[0][:50].strip()
+            
+            if room_label and room_label not in ("Book Now", "Details"):
+                current_room = room_label
+                rooms.setdefault(current_room, {"status": "AVAILABLE", "times": []})
+        
+        elif any(p in line for p in target_patterns) and current_room:
             j = i + 1
             while j < len(lines):
                 next_line = lines[j]
                 if is_time(next_line):
                     # Check if next line is "FULL" or similar
                     is_full = False
-                    if j + 1 < len(lines) and lines[j+1] in ("FULL", "SOLD OUT", "Sold out"):
+                    if j + 1 < len(lines) and lines[j+1] in ("FULL", "SOLD OUT", "Sold out", "Unavailable"):
                         is_full = True
                     
                     if not is_full:
                         rooms[current_room]["times"].append(next_line)
-                elif next_line.startswith("Sun, ") or next_line.startswith("Mon, ") or next_line.startswith("Tue, "):
+                elif any(p in next_line for p in target_patterns) and next_line != line:
                     # Hit next day
                     break
-                elif j > i + 30: # Safety break
+                elif j > i + 40: # Safety break
                     break
                 j += 1
             i = j
@@ -414,6 +429,7 @@ async def scrape_bookeo(page: Page, target_date: date, url: str) -> list[dict]:
         i += 1
 
     if not rooms:
+        # Fallback search: just look for anything that looks like a room followed by times
         return [{"room": "—", "status": "NO DATA", "times": []}]
 
     return [
