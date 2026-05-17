@@ -351,14 +351,9 @@ def print_all_venues(
     console.print(table)
 
 
-# ── Bookeo scraper ────────────────────────────────────────────────────────────
-
-_BOOKEO_DURATIONS = re.compile(r"^(\d+\s*(?:hour|min|hr|m|Hour|Min|Hour|min|Hour|Min|Hour|Min|Hour|Min))", re.IGNORECASE)
-
 async def scrape_bookeo(page: Page, target_date: date, url: str) -> list[dict]:
     """Returns list of {room, status, times} for a Bookeo venue."""
     await goto(page, url, timeout=30000)
-    # Wait for room listing to render (JS-heavy under parallel load)
     try:
         await page.wait_for_selector(".bookeo_items_list, .bookeo_item", timeout=15000)
     except Exception:
@@ -373,8 +368,6 @@ async def scrape_bookeo(page: Page, target_date: date, url: str) -> list[dict]:
     rooms: dict[str, dict] = {}
     current_room = None
     
-    # Bookeo uses "Sat, May 16, 2026" or "Saturday, May 16, 2026" or "Sat 16 May"
-    # We will build a few patterns
     target_patterns = [
         target_date.strftime("%a, %B %-d, %Y"),
         target_date.strftime("%a, %B %d, %Y"),
@@ -383,53 +376,65 @@ async def scrape_bookeo(page: Page, target_date: date, url: str) -> list[dict]:
         target_date.strftime("%a, %b %-d"),
     ]
 
-    i = 0
-    while i < len(lines):
+    # Helper to clean room name
+    def clean_name(n):
+        if not n: return None
+        n = re.sub(r"^(NEW!|HOT|FEATURED)\s+", "", n, flags=re.I)
+        if len(n) > 60: n = n[:57] + "..."
+        return n.strip()
+
+    # Pre-parse: Find all likely room names by looking for duration markers
+    # Bookeo usually follows: [Room Name] -> [Duration] -> [Date] -> [Times]
+    for i in range(len(lines)):
         line = lines[i]
         
-        # Check if this line looks like a room duration (meaning the line above was likely the room name)
-        is_duration = _BOOKEO_DURATIONS.search(line) or (i + 1 < len(lines) and _BOOKEO_DURATIONS.search(lines[i+1]))
-        
-        if is_duration and not any(p in line for p in target_patterns):
-            # If the next line is the duration, current line is the room
-            if i + 1 < len(lines) and _BOOKEO_DURATIONS.search(lines[i+1]):
-                room_label = line
-            else:
-                # This line itself is the duration, room was likely previous line
-                room_label = lines[i-1] if i > 0 else "Unknown Room"
-
-            # Clean up room label if it's too long
-            if len(room_label) > 60:
-                room_label = room_label.split('.')[0][:50].strip()
+        # If we find a duration, the room name is likely 1-3 lines above it
+        if _BOOKEO_DURATIONS.search(line):
+            candidate = None
+            for offset in range(1, 4):
+                if i - offset >= 0:
+                    prev = lines[i-offset]
+                    # A good room name isn't a date, time, or short button text
+                    if (not is_time(prev) 
+                        and not any(p in prev for p in target_patterns)
+                        and len(prev) > 3 
+                        and prev not in ("Book Now", "Details", "More info", "Photos")):
+                        candidate = prev
+                        break
             
-            if room_label and room_label not in ("Book Now", "Details"):
-                current_room = room_label
+            if candidate:
+                current_room = clean_name(candidate)
                 rooms.setdefault(current_room, {"status": "AVAILABLE", "times": []})
         
-        elif any(p in line for p in target_patterns) and current_room:
-            j = i + 1
-            while j < len(lines):
-                next_line = lines[j]
-                if is_time(next_line):
-                    # Check if next line is "FULL" or similar
-                    is_full = False
-                    if j + 1 < len(lines) and lines[j+1] in ("FULL", "SOLD OUT", "Sold out", "Unavailable"):
-                        is_full = True
-                    
-                    if not is_full:
-                        rooms[current_room]["times"].append(next_line)
-                elif any(p in next_line for p in target_patterns) and next_line != line:
-                    # Hit next day
-                    break
-                elif j > i + 40: # Safety break
-                    break
-                j += 1
-            i = j
-            continue
-        i += 1
+        # If we find a target date, we apply all following times to the LAST found room
+        elif any(p in line for p in target_patterns):
+            if current_room:
+                # Look ahead for times
+                j = i + 1
+                while j < len(lines):
+                    nl = lines[j]
+                    if is_time(nl):
+                        # Check if next line is "FULL" or similar
+                        is_full = False
+                        if j + 1 < len(lines) and lines[j+1].upper() in ("FULL", "SOLD OUT", "UNAVAILABLE"):
+                            is_full = True
+                        if not is_full:
+                            rooms[current_room]["times"].append(nl)
+                    elif any(p in nl for p in target_patterns) and nl != line:
+                        # Hit next day
+                        break
+                    elif _BOOKEO_DURATIONS.search(nl):
+                        # Hit next room's duration (in case times aren't listed)
+                        break
+                    elif j > i + 50: # Safety break
+                        break
+                    j += 1
+                # Note: We don't advance 'i' here because we might have multiple rooms sharing a date block 
+                # (though rare in Bookeo) or a room might be detected immediately after.
+                # But to avoid re-parsing the same date block for the same room, we can advance a bit.
+                # Actually, let's just let the main loop continue.
 
     if not rooms:
-        # Fallback search: just look for anything that looks like a room followed by times
         return [{"room": "—", "status": "NO DATA", "times": []}]
 
     return [
