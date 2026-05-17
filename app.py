@@ -269,60 +269,90 @@ async def run_scrapers(target_date):
     # Use a semaphore to prevent crashing the container
     semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
 
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=True,
-            args=["--disable-blink-features=AutomationControlled", "--no-sandbox", "--disable-setuid-sandbox"],
-        )
-        context = await browser.new_context(
-            user_agent=(
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-            ),
-            viewport={"width": 1280, "height": 800},
-            locale="en-US",
-        )
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(
+                headless=True,
+                args=["--disable-blink-features=AutomationControlled", "--no-sandbox", "--disable-setuid-sandbox"],
+            )
+            context = await browser.new_context(
+                user_agent=(
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                ),
+                viewport={"width": 1280, "height": 800},
+                locale="en-US",
+            )
 
-        tasks = []
-        for name, _url in scraper.VENUES:
-            idx = [v[0] for v in scraper.VENUES].index(name)
-            fn, a, kw = scraper.SCRAPERS[idx]
-            
-            async def wrapped_scrape(n=name, f=fn, args=a, kwargs=kw):
-                async with semaphore: # Respect the dynamic resource limit
-                    page = await context.new_page()
-                    await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            tasks = []
+            for name, _url in scraper.VENUES:
+                idx = [v[0] for v in scraper.VENUES].index(name)
+                fn, a, kw = scraper.SCRAPERS[idx]
+                
+                async def wrapped_scrape(n=name, f=fn, args=a, kwargs=kw):
+                    async with semaphore: # Respect the dynamic resource limit
+                        try:
+                            page = await context.new_page()
+                            await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+                            try:
+                                res = await f(page, target_date, *args, **kwargs)
+                                return n, res
+                            except Exception as e:
+                                return n, [{"room": "Error", "status": "Error loading", "times": []}]
+                            finally:
+                                # Ensure we don't try to close a page if the browser is gone
+                                if browser.is_connected():
+                                    await page.close()
+                        except asyncio.CancelledError:
+                            raise
+                        except Exception:
+                            return n, [{"room": "Error", "status": "Error loading", "times": []}]
+                
+                tasks.append(asyncio.create_task(wrapped_scrape()))
+
+            try:
+                for future in asyncio.as_completed(tasks):
                     try:
-                        res = await f(page, target_date, *args, **kwargs)
-                        return n, res
-                    except Exception as e:
-                        return n, [{"room": "Error", "status": "Error loading", "times": []}]
-                    finally:
-                        await page.close()
-            tasks.append(wrapped_scrape())
+                        venue_name, room_results = await future
+                        status_text.write(f"✓ {venue_name}")
+                        
+                        for r in room_results:
+                            all_data.append({
+                                "Venue": venue_name,
+                                "Room": r["room"],
+                                "Status": format_status(r["status"]),
+                                "Time Slots": ", ".join(r["times"]) if r["times"] else "—",
+                                "Link": BOOKING_URLS.get(venue_name, "#")
+                            })
+                        
+                        # Update state and display
+                        df = pd.DataFrame(all_data + MANUAL_VENUES)
+                        df['is_avail'] = df['Status'].apply(lambda x: 0 if x == "AVAILABLE" else 1)
+                        df = df.sort_values(['is_avail', 'Venue']).drop(columns=['is_avail'])
+                        st.session_state.search_results = df
+                        render_results(df)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
+                        continue # Skip failed individual venue results in the table update
 
-        for future in asyncio.as_completed(tasks):
-            venue_name, room_results = await future
-            status_text.write(f"✓ {venue_name}")
+                await browser.close()
+                status_text.update(label="COMPLETE", state="complete", expanded=False)
             
-            for r in room_results:
-                all_data.append({
-                    "Venue": venue_name,
-                    "Room": r["room"],
-                    "Status": format_status(r["status"]),
-                    "Time Slots": ", ".join(r["times"]) if r["times"] else "—",
-                    "Link": BOOKING_URLS.get(venue_name, "#")
-                })
-            
-            # Update state and display
-            df = pd.DataFrame(all_data + MANUAL_VENUES)
-            df['is_avail'] = df['Status'].apply(lambda x: 0 if x == "AVAILABLE" else 1)
-            df = df.sort_values(['is_avail', 'Venue']).drop(columns=['is_avail'])
-            st.session_state.search_results = df
-            render_results(df)
-
-        await browser.close()
-        status_text.update(label="COMPLETE", state="complete", expanded=False)
+            except asyncio.CancelledError:
+                # User interrupted (e.g. refresh or click)
+                # Cleanup tasks if they are still running
+                for t in tasks:
+                    if not t.done():
+                        t.cancel()
+                if browser.is_connected():
+                    await browser.close()
+                raise
+    
+    except asyncio.CancelledError:
+        raise
+    except Exception as e:
+        st.error(f"SYSTEM OVERHEAT: {str(e)}")
 
 def render_results(df):
     if df is None or df.empty:
