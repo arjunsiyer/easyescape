@@ -4,7 +4,6 @@ libnss3
 libxss1
 libatk1.0-0
 libatk-bridge2.0-0
-libcups2
 libdrm2
 libxkbcommon0
 libxcomposite1
@@ -14,5 +13,4 @@ libxrandr2
 libpango-1.0-0
 libcairo2
 libpangocairo-1.0-0
-libgtk-3-0
 libharfbuzz-icu0
