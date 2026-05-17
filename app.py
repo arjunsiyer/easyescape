@@ -264,7 +264,7 @@ BOOKING_URLS.update({
 
 async def run_scrapers(target_date):
     all_data = []
-    status_text = st.status(f"INITIALIZING TACTICAL LINK ({MAX_CONCURRENCY} PARALLEL STREAMS)...", expanded=True)
+    status_text = st.status("LOADING...", expanded=True)
     
     # Use a semaphore to prevent crashing the container
     semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
@@ -322,7 +322,7 @@ async def run_scrapers(target_date):
             render_results(df)
 
         await browser.close()
-        status_text.update(label="SEARCH COMPLETE!", state="complete", expanded=False)
+        status_text.update(label="COMPLETE", state="complete", expanded=False)
 
 def render_results(df):
     if df is None or df.empty:
