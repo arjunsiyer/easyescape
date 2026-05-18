@@ -8,6 +8,12 @@ import pandas as pd
 import math
 import multiprocessing
 import re
+import pytz
+
+# Get 'today' in Reno time (Pacific) to avoid UTC jumping ahead
+reno_tz = pytz.timezone('US/Pacific')
+reno_now = datetime.datetime.now(reno_tz)
+reno_today = reno_now.date()
 
 # Ensure playwright browsers are installed (needed for Streamlit Cloud)
 @st.cache_resource
@@ -207,7 +213,7 @@ st.markdown('<div id="search-area"></div>', unsafe_allow_html=True)
 with st.container(border=True):
     col1, col2 = st.columns([2, 1], gap="medium")
     with col1:
-        selected_date = st.date_input("Target Date", date.today(), min_value=date.today(), label_visibility="collapsed")
+        selected_date = st.date_input("Target Date", reno_today, min_value=reno_today, label_visibility="collapsed")
     with col2:
         check_button = st.button("GO", type="primary", width="stretch")
 st.markdown('<br>', unsafe_allow_html=True)
