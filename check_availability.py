@@ -451,8 +451,7 @@ MAX_PARALLEL = max(1, math.floor((os.cpu_count() or 4) * 0.6))
 
 VENUES = [
     ("Puzzle Room Reno",                         "https://puzzleroom.checkfront.com/reserve/"),
-    ("Puzzle Room Reno (Cat 2)",                 "https://puzzleroom.checkfront.com/reserve/?category_id=2"),
-    ("Break Through Reno",                        "https://gsr.breakthroughreno.com/book-now"),
+    ("Break Through Reno (GSR)",                 "https://gsr.breakthroughreno.com/book-now"),
     ("Sensology",                                 "https://sensology.checkfront.com/reserve/"),
     ("Key & Code — Sparks / Outlets at Legends",  "https://fareharbor.com/embeds/book/keyandcode/?full-items=yes&flow=1587088"),
     ("Key & Code — South Reno / Summit Mall",     "https://fareharbor.com/embeds/book/keyandcode/?full-items=yes&flow=1587108"),
@@ -460,30 +459,6 @@ VENUES = [
     ("Deadline Escape Rooms",                     "https://fareharbor.com/embeds/book/deadlineescape/?full-items=yes"),
     ("Keystone Escape Games",                     KEYSTONE_URL),
 ]
-
-
-_sem: asyncio.Semaphore | None = None
-
-
-async def run(context, target_date, fn, *args, **kwargs) -> list[dict]:
-    """Spin up a fresh page, run a scraper, close the page. Respects semaphore if set."""
-    async def _execute():
-        page = await context.new_page()
-        await page.add_init_script(
-            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-        )
-        try:
-            return await fn(page, target_date, *args, **kwargs)
-        except Exception as e:
-            return [{"room": "ERROR", "status": str(e)[:60], "times": []}]
-        finally:
-            await page.close()
-
-    if _sem:
-        async with _sem:
-            return await _execute()
-    return await _execute()
-
 
 SCRAPERS = [
     (scrape_checkfront, ("puzzleroom",),           {"category_id": "7"}),
@@ -496,16 +471,7 @@ SCRAPERS = [
     (scrape_bookeo,     (KEYSTONE_URL,),            {}),
 ]
 
-VENUES = [
-    ("Puzzle Room Reno",                         "https://puzzleroom.checkfront.com/reserve/"),
-    ("Break Through Reno (GSR)",                 "https://gsr.breakthroughreno.com/book-now"),
-    ("Sensology",                                 "https://sensology.checkfront.com/reserve/"),
-    ("Key & Code — Sparks / Outlets at Legends",  "https://fareharbor.com/embeds/book/keyandcode/?full-items=yes&flow=1587088"),
-    ("Key & Code — South Reno / Summit Mall",     "https://fareharbor.com/embeds/book/keyandcode/?full-items=yes&flow=1587108"),
-    ("Key & Code — Reno / Costco Center",         "https://fareharbor.com/embeds/book/keyandcode/?full-items=yes&flow=1587113"),
-    ("Deadline Escape Rooms",                     "https://fareharbor.com/embeds/book/deadlineescape/?full-items=yes"),
-    ("Keystone Escape Games",                     KEYSTONE_URL),
-]
+_sem: asyncio.Semaphore | None = None
 
 async def main():
     global _sem

@@ -241,7 +241,7 @@ def format_status(status):
 BOOKING_URLS = {name: url for name, url in scraper.VENUES}
 
 async def run_scrapers(target_date):
-    all_data = []
+    all_data = {} # Changed to dict for deduplication
     status_text = st.status("LOADING...", expanded=True)
     
     # Use a semaphore to prevent crashing the container
@@ -300,16 +300,18 @@ async def run_scrapers(target_date):
                         status_text.write(f"✓ {venue_name}")
                         
                         for r in room_results:
-                            all_data.append({
+                            # Use a unique key for deduplication
+                            key = (venue_name, r["room"])
+                            all_data[key] = {
                                 "Venue": venue_name,
                                 "Room": r["room"],
                                 "Status": format_status(r["status"]),
                                 "Time Slots": ", ".join(r["times"]) if r["times"] else "—",
                                 "Link": BOOKING_URLS.get(venue_name, "#")
-                            })
+                            }
                         
-                        # Update state and display
-                        df = pd.DataFrame(all_data + MANUAL_VENUES)
+                        # Update state and display with deduplicated results
+                        df = pd.DataFrame(list(all_data.values()))
                         df['is_avail'] = df['Status'].apply(lambda x: 0 if x == "AVAILABLE" else 1)
                         df = df.sort_values(['is_avail', 'Venue']).drop(columns=['is_avail'])
                         st.session_state.search_results = df
@@ -317,7 +319,7 @@ async def run_scrapers(target_date):
                     except asyncio.CancelledError:
                         raise
                     except Exception:
-                        continue # Skip failed individual venue results in the table update
+                        continue # Skip failed individual venue results
 
                 await browser.close()
                 status_text.update(label="COMPLETE", state="complete", expanded=False)
