@@ -198,9 +198,18 @@ st.markdown("""
         font-family: 'Orbitron', sans-serif;
     }
 
-    .result-row.completed { opacity: 0.25; filter: grayscale(1); }
-    .result-row.completed td { text-decoration: line-through; }
+    /* Aggressive Completed Row Styling */
+    .result-row.completed { 
+        opacity: 0.25 !important; 
+        filter: grayscale(1) !important; 
+    }
     
+    .result-row.completed div, 
+    .result-row.completed span { 
+        text-decoration: line-through !important; 
+        color: #94a3b8 !important;
+    }
+
     .cyber-cb {
         appearance: none;
         width: 16px;
