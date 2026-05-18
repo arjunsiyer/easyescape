@@ -380,15 +380,58 @@ def render_results(df):
     if df is None or df.empty:
         return
 
-    # Script for interactivity and persistence
-    script_and_style = """
+    # All-in-one style and script for the results block
+    # Using CSS :has() for bulletproof strike-through without needing JS for the visual part
+    header_style = """
+    <style>
+    .results-wrapper { margin-top: 10px; }
+    .venue-group-header {
+        background-color: rgba(0, 255, 204, 0.1);
+        color: #00ffcc;
+        font-weight: 800;
+        padding: 10px 14px;
+        margin-top: 1.5rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-left: 4px solid #00ffcc;
+        font-family: 'Orbitron', sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-size: 0.85rem;
+    }
+    .results-table { width: 100%; border-collapse: separate; border-spacing: 0 6px; margin-bottom: 1.5rem; }
+    .result-row { background: rgba(10, 14, 20, 0.6); border: 1px solid rgba(0, 255, 204, 0.1); transition: all 0.2s; }
+    .result-row td { padding: 12px; color: #00ffcc; font-size: 0.85rem; }
+    
+    .status-pill { padding: 2px 8px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; border: 1px solid currentColor; display: inline-block; }
+    .status-available { background: rgba(0, 255, 204, 0.1); color: #00ffcc; }
+    .status-soldout { background: rgba(255, 0, 255, 0.1); color: #ff00ff; }
+    .status-none { background: rgba(148, 163, 184, 0.1); color: #94a3b8; }
+    
+    .time-slot { background: rgba(0, 255, 204, 0.05); color: #00ffcc; padding: 1px 6px; border: 1px solid rgba(0, 255, 204, 0.3); margin-right: 4px; font-size: 0.75rem; display: inline-block; margin-bottom: 3px; }
+    .book-link { color: #ff00ff; text-decoration: none; font-weight: 900; font-size: 0.7rem; border: 1px solid #ff00ff; padding: 3px 10px; font-family: 'Orbitron', sans-serif; }
+    
+    .cyber-cb { appearance: none; width: 18px; height: 18px; border: 2px solid #00ffcc; background: transparent; cursor: pointer; flex-shrink: 0; margin-right: 12px; margin-top: 2px; position: relative; }
+    .cyber-cb:checked { background: #00ffcc; }
+    .cyber-cb:checked::after { content: '✔'; color: #000; position: absolute; top: -2px; left: 2px; font-size: 14px; font-weight: bold; }
+
+    /* THE CORE FIX: Pure CSS Strike-through using :has selector */
+    .result-row:has(.cyber-cb:checked) { opacity: 0.25 !important; filter: grayscale(1) !important; }
+    .result-row:has(.cyber-cb:checked) div, 
+    .result-row:has(.cyber-cb:checked) span { text-decoration: line-through !important; color: #94a3b8 !important; }
+    
+    /* Fallback for manual .completed class (JS used for persistence) */
+    .result-row.completed { opacity: 0.25 !important; filter: grayscale(1) !important; }
+    .result-row.completed div, 
+    .result-row.completed span { text-decoration: line-through !important; color: #94a3b8 !important; }
+    </style>
+    
     <script>
     function toggleComplete(id) {
-        const row = document.getElementById('row-' + id);
         const checkbox = document.getElementById('cb-' + id);
         const isCompleted = checkbox.checked;
-        if (isCompleted) { row.classList.add('completed'); } 
-        else { row.classList.remove('completed'); }
         let stored = JSON.parse(localStorage.getItem('easyescape_history') || '{}');
         stored[id] = isCompleted;
         localStorage.setItem('easyescape_history', JSON.stringify(stored));
@@ -397,18 +440,16 @@ def render_results(df):
         let stored = JSON.parse(localStorage.getItem('easyescape_history') || '{}');
         for (const [id, isCompleted] of Object.entries(stored)) {
             if (isCompleted) {
-                const row = document.getElementById('row-' + id);
                 const checkbox = document.getElementById('cb-' + id);
-                if (row && checkbox) { row.classList.add('completed'); checkbox.checked = true; }
+                if (checkbox) { checkbox.checked = true; }
             }
         }
     }
-    // Run after a short delay to ensure elements are in DOM
-    setTimeout(restoreState, 100);
+    setTimeout(restoreState, 150);
     </script>
     """
 
-    html_output = script_and_style + '<div class="results-wrapper">'
+    html_output = header_style + '<div class="results-wrapper">'
     
     grouped = df.groupby("Venue", sort=False)
     for venue, group in grouped:
