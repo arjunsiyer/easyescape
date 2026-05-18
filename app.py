@@ -427,7 +427,6 @@ def render_results(df):
     .result-row.completed div, 
     .result-row.completed span { text-decoration: line-through !important; color: #94a3b8 !important; }
     </style>
-    
     <script>
     function toggleComplete(id) {
         const checkbox = document.getElementById('cb-' + id);
@@ -445,8 +444,10 @@ def render_results(df):
             }
         }
     }
-    setTimeout(restoreState, 150);
+    /* Run after a short delay to ensure elements are in DOM */
+    setTimeout(restoreState, 200);
     </script>
+
     """
 
     html_output = header_style + '<div class="results-wrapper">'
