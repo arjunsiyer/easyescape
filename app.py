@@ -240,7 +240,7 @@ with st.container(border=True):
 st.markdown('<br>', unsafe_allow_html=True)
 
 # Placeholder for results
-results_container = st.empty()
+results_table_container = st.empty()
 
 # Manual entries - REMOVED for full automation focus
 MANUAL_VENUES = []
@@ -432,7 +432,7 @@ def render_results(df):
     
     # Remove any potential markdown-triggering indentation or newlines
     compact_html = re.sub(r'\n\s*', '', html_output)
-    st.markdown(compact_html, unsafe_allow_html=True)
+    results_table_container.markdown(compact_html, unsafe_allow_html=True)
 
 # Logic to handle persistent display
 if check_button:
