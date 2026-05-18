@@ -7,6 +7,7 @@ import os
 import pandas as pd
 import math
 import multiprocessing
+import re
 
 # Ensure playwright browsers are installed (needed for Streamlit Cloud)
 @st.cache_resource
@@ -338,18 +339,15 @@ def render_results(df):
     if df is None or df.empty:
         return
 
+    # Use a single compact string to prevent Streamlit from misinterpreting as code blocks
     html_output = '<div class="results-wrapper">'
     
     grouped = df.groupby("Venue", sort=False)
     for venue, group in grouped:
         link = BOOKING_URLS.get(venue, "#")
-        html_output += f"""
-        <div class="venue-group-header">
-            <span>{venue}</span>
-            <a href="{link}" target="_blank" class="book-link">BOOK</a>
-        </div>
-        <table class="results-table">
-        """
+        html_output += f'<div class="venue-group-header"><span>{venue}</span><a href="{link}" target="_blank" class="book-link">BOOK</a></div>'
+        html_output += '<table class="results-table">'
+        
         for _, row in group.iterrows():
             status = row["Status"]
             status_class = "status-none"
@@ -367,26 +365,20 @@ def render_results(df):
                 note = row["Time Slots"] if row["Time Slots"] != "—" else "No slots available"
                 times_html = f'<span style="color: #64748b; font-style: italic; font-size: 0.75rem;">{note}</span>'
 
-            html_output += f"""
-            <tr class="result-row" id="row-{room_id}">
-                <td style="width: 45%;">
-                    <div style="display: flex; align-items: flex-start;">
-                        <input type="checkbox" class="cyber-cb" id="cb-{room_id}" onclick="toggleComplete('{room_id}')">
-                        <div style="min-width: 0;">
-                            <div style="font-weight: 700; color: #fff; line-height: 1.2;">{row["Room"]}</div>
-                            <div style="margin-top: 4px;"><span class="status-pill {status_class}">{status}</span></div>
-                        </div>
-                    </div>
-                </td>
-                <td style="width: 55%; vertical-align: top;">{times_html}</td>
-            </tr>
-            """
+            html_output += f'<tr class="result-row" id="row-{room_id}">'
+            html_output += f'<td style="width: 45%;"><div style="display: flex; align-items: flex-start;">'
+            html_output += f'<input type="checkbox" class="cyber-cb" id="cb-{room_id}" onclick="toggleComplete(\'{room_id}\')">'
+            html_output += f'<div style="min-width: 0;"><div style="font-weight: 700; color: #fff; line-height: 1.2;">{row["Room"]}</div>'
+            html_output += f'<div style="margin-top: 4px;"><span class="status-pill {status_class}">{status}</span></div></div></div></td>'
+            html_output += f'<td style="width: 55%; vertical-align: top;">{times_html}</td></tr>'
+        
         html_output += "</table>"
 
     html_output += '</div>'
     
-    # Render directly to page to ensure single scroll
-    st.markdown(html_output, unsafe_allow_html=True)
+    # Remove any potential markdown-triggering indentation or newlines
+    compact_html = re.sub(r'\n\s*', '', html_output)
+    st.markdown(compact_html, unsafe_allow_html=True)
 
 # Logic to handle persistent display
 if check_button:
