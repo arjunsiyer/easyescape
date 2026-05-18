@@ -312,8 +312,10 @@ async def run_scrapers(target_date):
                         
                         # Update state and display with deduplicated results
                         df = pd.DataFrame(list(all_data.values()))
+                        # Ensure all rooms for a venue are together by sorting by Venue first
+                        # Then sort by availability (0=Available, 1=Sold Out) and then Room name
                         df['is_avail'] = df['Status'].apply(lambda x: 0 if x == "AVAILABLE" else 1)
-                        df = df.sort_values(['is_avail', 'Venue']).drop(columns=['is_avail'])
+                        df = df.sort_values(['Venue', 'is_avail', 'Room']).drop(columns=['is_avail'])
                         st.session_state.search_results = df
                         render_results(df)
                     except asyncio.CancelledError:
