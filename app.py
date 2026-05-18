@@ -55,7 +55,7 @@ st.markdown("""
 
     /* Centered Container */
     .main .block-container {
-        padding-top: 3rem;
+        padding-top: 2rem;
         max-width: 850px;
     }
 
@@ -67,8 +67,8 @@ st.markdown("""
         text-align: center;
         text-transform: uppercase;
         letter-spacing: 5px;
-        margin-bottom: 2rem;
-        font-size: 3rem;
+        margin-bottom: 1.5rem;
+        font-size: 2.2rem;
         text-shadow: 0 0 5px rgba(0, 255, 204, 0.6), 0 0 10px rgba(0, 255, 204, 0.4);
     }
     
@@ -77,7 +77,7 @@ st.markdown("""
         background: rgba(10, 14, 20, 0.8) !important;
         border: 2px solid #00ffcc !important;
         border-radius: 4px !important;
-        padding: 2rem !important;
+        padding: 1.5rem !important;
         box-shadow: 0 0 15px rgba(0, 255, 204, 0.2), inset 0 0 10px rgba(0, 255, 204, 0.1) !important;
         backdrop-filter: blur(10px) !important;
     }
@@ -87,12 +87,12 @@ st.markdown("""
         background-color: #000 !important;
         border: 1px solid #00ffcc !important;
         border-radius: 0px !important;
-        color: #00ffcc !important;
     }
     
     div[data-baseweb="input"] input {
         color: #00ffcc !important;
         font-family: 'JetBrains Mono', monospace !important;
+        font-size: 0.9rem !important;
     }
 
     /* High-Voltage Primary Button */
@@ -101,7 +101,7 @@ st.markdown("""
         background: #00ffcc !important;
         color: #000 !important;
         border: none !important;
-        padding: 1rem !important;
+        padding: 0.8rem !important;
         font-family: 'Orbitron', sans-serif !important;
         font-weight: 900 !important;
         border-radius: 0px !important;
@@ -109,111 +109,91 @@ st.markdown("""
         text-transform: uppercase;
         letter-spacing: 2px;
         box-shadow: 0 0 20px rgba(0, 255, 204, 0.4) !important;
+        font-size: 1rem !important;
     }
     
     .stButton > button:hover {
-        background: #ff00ff !important; /* Cyber Magenta */
+        background: #ff00ff !important;
         color: #fff !important;
         box-shadow: 0 0 30px rgba(255, 0, 255, 0.6) !important;
-        transform: translate(-2px, -2px);
     }
 
-    /* Custom HTML Table Styling */
+    /* Custom Table Styling (Integrated for Single Scroll) */
     .venue-group-header {
         background-color: rgba(0, 255, 204, 0.1);
         color: #00ffcc;
         font-weight: 800;
-        padding: 12px 16px;
-        border-radius: 0px;
-        margin-top: 20px;
-        margin-bottom: 8px;
-        font-family: 'Orbitron', sans-serif;
+        padding: 10px 14px;
+        margin-top: 1.5rem;
+        margin-bottom: 0.5rem;
         display: flex;
         justify-content: space-between;
         align-items: center;
         border-left: 4px solid #00ffcc;
+        font-family: 'Orbitron', sans-serif;
         text-transform: uppercase;
         letter-spacing: 1px;
-    }
-
-    .results-table {
-        width: 100%;
-        border-collapse: separate;
-        border-spacing: 0 8px;
-        margin-bottom: 24px;
-    }
-
-    .result-row {
-        background: rgba(10, 14, 20, 0.6);
-        border: 1px solid rgba(0, 255, 204, 0.1);
-    }
-
-    .result-row td {
-        padding: 16px;
-        color: #00ffcc;
-        font-family: 'JetBrains Mono', monospace;
-    }
-
-    .status-pill {
-        padding: 4px 12px;
-        border-radius: 0px;
         font-size: 0.85rem;
-        font-weight: 700;
-        text-transform: uppercase;
+    }
+
+    .results-table { width: 100%; border-collapse: separate; border-spacing: 0 6px; margin-bottom: 1.5rem; }
+    .result-row { background: rgba(10, 14, 20, 0.6); border: 1px solid rgba(0, 255, 204, 0.1); }
+    .result-row td { padding: 12px; color: #00ffcc; font-size: 0.85rem; }
+    
+    .status-pill { 
+        padding: 2px 8px; 
+        font-size: 0.7rem; 
+        font-weight: 700; 
+        text-transform: uppercase; 
         border: 1px solid currentColor;
+        display: inline-block;
     }
 
-    /* Aggressive Tactical Status Widget Styling */
-    div[data-testid="stStatusWidget"], 
-    div[data-testid="stStatusWidget"] > div,
-    div[data-testid="stExpander"] {
-        background-color: rgba(5, 7, 10, 0.95) !important;
-        border: 1px solid #00ffcc !important;
-        border-radius: 0px !important;
-        box-shadow: 0 0 15px rgba(0, 255, 204, 0.3) !important;
-        margin-bottom: 1rem !important;
+    .time-slot {
+        background: rgba(0, 255, 204, 0.05);
+        color: #00ffcc;
+        padding: 1px 6px;
+        border: 1px solid rgba(0, 255, 204, 0.3);
+        margin-right: 4px;
+        font-size: 0.75rem;
+        display: inline-block;
+        margin-bottom: 3px;
     }
 
-    /* Remove the default rounded corners from all internal Streamlit wrappers */
-    [data-testid="stVerticalBlockBorderWrapper"] > div {
-        border-radius: 0px !important;
+    .book-link {
+        color: #ff00ff;
+        text-decoration: none;
+        font-weight: 900;
+        font-size: 0.7rem;
+        border: 1px solid #ff00ff;
+        padding: 3px 10px;
+        transition: all 0.2s;
+        font-family: 'Orbitron', sans-serif;
     }
 
-    div[data-testid="stStatusWidget"] [data-testid="stExpanderDetails"] {
-        background-color: rgba(0, 0, 0, 0.5) !important;
-        border-top: 1px solid #00ffcc !important;
-        padding: 1rem !important;
+    .result-row.completed { opacity: 0.25; filter: grayscale(1); }
+    .result-row.completed td { text-decoration: line-through; }
+    
+    .cyber-cb {
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border: 2px solid #00ffcc;
+        background: transparent;
+        cursor: pointer;
+        flex-shrink: 0; /* Prevent squishing */
+        margin-right: 10px;
+        margin-top: 2px;
     }
-
-    div[data-testid="stStatusWidget"] summary {
-        padding: 0.75rem 1rem !important;
-        background: transparent !important;
-    }
-
-    div[data-testid="stStatusWidget"] svg {
-        fill: #00ffcc !important;
-        filter: drop-shadow(0 0 5px #00ffcc);
-    }
-
-    div[data-testid="stStatusWidget"] label,
-    div[data-testid="stStatusWidget"] .stText {
-        color: #00ffcc !important;
-        font-family: 'Orbitron', sans-serif !important;
-        text-transform: uppercase !important;
-        letter-spacing: 2px !important;
-        font-weight: 900 !important;
-    }
-
-    .status-available { background: rgba(0, 255, 204, 0.1); color: #00ffcc; }
-    .status-soldout { background: rgba(255, 0, 255, 0.1); color: #ff00ff; }
-    .status-none { background: rgba(148, 163, 184, 0.1); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.2); }
+    .cyber-cb:checked { background: #00ffcc; }
 
     /* Hide standard Streamlit header/footer */
     header, footer {visibility: hidden !important;}
     
-    /* Mobile font adjustments */
     @media (max-width: 640px) {
-        .main-title { font-size: 1.8rem; letter-spacing: 2px; }
+        .main-title { font-size: 1.4rem; letter-spacing: 2px; }
+        .result-row td { padding: 10px 8px; }
+        .venue-group-header { font-size: 0.75rem; }
     }
     </style>
     """, unsafe_allow_html=True)
@@ -358,130 +338,7 @@ def render_results(df):
     if df is None or df.empty:
         return
 
-    # Move CSS inside the component so it works in the iframe
-    css = """
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@400;900&display=swap');
-    body { background-color: transparent; color: #00ffcc; font-family: 'JetBrains Mono', monospace; margin: 0; padding: 0; }
-    .venue-group-header {
-        background-color: rgba(0, 255, 204, 0.1);
-        color: #00ffcc;
-        font-weight: 800;
-        padding: 12px 16px;
-        border-radius: 0px;
-        margin-top: 20px;
-        margin-bottom: 8px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-left: 4px solid #00ffcc;
-        font-family: 'Orbitron', sans-serif;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-    .results-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; margin-bottom: 24px; }
-    .result-row { background: rgba(10, 14, 20, 0.6); border: 1px solid rgba(0, 255, 204, 0.1); border-radius: 0px; }
-    .result-row td { padding: 16px; color: #00ffcc; }
-    .status-pill { padding: 4px 12px; border-radius: 0px; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; border: 1px solid currentColor; }
-    .status-available { background: rgba(0, 255, 204, 0.1); color: #00ffcc; }
-    .status-soldout { background: rgba(255, 0, 255, 0.1); color: #ff00ff; }
-    .status-none { background: rgba(148, 163, 184, 0.1); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.2); }
-    .time-slot {
-        background: rgba(0, 255, 204, 0.05);
-        color: #00ffcc;
-        padding: 2px 8px;
-        border: 1px solid rgba(0, 255, 204, 0.3);
-        border-radius: 0px;
-        margin-right: 6px;
-        font-size: 0.9rem;
-        display: inline-block;
-        margin-bottom: 4px;
-        font-family: 'JetBrains Mono', monospace;
-    }
-    .book-link {
-        color: #ff00ff;
-        text-decoration: none;
-        font-weight: 900;
-        font-size: 0.8rem;
-        border: 1px solid #ff00ff;
-        padding: 4px 12px;
-        border-radius: 0px;
-        transition: all 0.2s;
-        font-family: 'Orbitron', sans-serif;
-        text-transform: uppercase;
-        box-shadow: 0 0 10px rgba(255, 0, 255, 0.2);
-    }
-    .book-link:hover { background: #ff00ff; color: #fff; box-shadow: 0 0 20px rgba(255, 0, 255, 0.5); }
-    .result-row.completed {
-        opacity: 0.3;
-        filter: grayscale(1);
-    }
-    .result-row.completed td {
-        text-decoration: line-through;
-    }
-    
-    /* Custom Checkbox Styling */
-    .cyber-cb {
-        appearance: none;
-        width: 18px;
-        height: 18px;
-        border: 2px solid #00ffcc;
-        background: transparent;
-        cursor: pointer;
-        position: relative;
-        vertical-align: middle;
-        margin-right: 12px;
-    }
-    .cyber-cb:checked {
-        background: #00ffcc;
-    }
-    .cyber-cb:checked::after {
-        content: "✔";
-        color: #000;
-        position: absolute;
-        top: -2px;
-        left: 2px;
-        font-size: 14px;
-        font-weight: bold;
-    }
-    </style>
-    
-    <script>
-    function toggleComplete(id) {
-        const row = document.getElementById('row-' + id);
-        const checkbox = document.getElementById('cb-' + id);
-        const isCompleted = checkbox.checked;
-        
-        if (isCompleted) {
-            row.classList.add('completed');
-        } else {
-            row.classList.remove('completed');
-        }
-        
-        // Persist to localStorage
-        let stored = JSON.parse(localStorage.getItem('easyescape_history') || '{}');
-        stored[id] = isCompleted;
-        localStorage.setItem('easyescape_history', JSON.stringify(stored));
-    }
-
-    // Restore state on load
-    window.onload = function() {
-        let stored = JSON.parse(localStorage.getItem('easyescape_history') || '{}');
-        for (const [id, isCompleted] of Object.entries(stored)) {
-            if (isCompleted) {
-                const row = document.getElementById('row-' + id);
-                const checkbox = document.getElementById('cb-' + id);
-                if (row && checkbox) {
-                    row.classList.add('completed');
-                    checkbox.checked = true;
-                }
-            }
-        }
-    }
-    </script>
-    """
-
-    html_output = css + '<div class="results-wrapper">'
+    html_output = '<div class="results-wrapper">'
     
     grouped = df.groupby("Venue", sort=False)
     for venue, group in grouped:
@@ -499,7 +356,6 @@ def render_results(df):
             if status == "AVAILABLE": status_class = "status-available"
             elif status == "SOLD OUT": status_class = "status-soldout"
             
-            # Create a safe ID for the room
             room_id = "".join(filter(str.isalnum, f"{venue}{row['Room']}"))
             
             times_html = ""
@@ -509,32 +365,28 @@ def render_results(df):
                     times_html += f'<span class="time-slot">{s}</span>'
             else:
                 note = row["Time Slots"] if row["Time Slots"] != "—" else "No slots available"
-                times_html = f'<span style="color: #94a3b8; font-style: italic;">{note}</span>'
+                times_html = f'<span style="color: #64748b; font-style: italic; font-size: 0.75rem;">{note}</span>'
 
             html_output += f"""
             <tr class="result-row" id="row-{room_id}">
-                <td style="width: 50%;">
+                <td style="width: 45%;">
                     <div style="display: flex; align-items: flex-start;">
                         <input type="checkbox" class="cyber-cb" id="cb-{room_id}" onclick="toggleComplete('{room_id}')">
-                        <div>
-                            <div style="font-weight: 600; font-size: 1.05rem;">{row["Room"]}</div>
-                            <div style="margin-top: 8px;"><span class="status-pill {status_class}">{status}</span></div>
+                        <div style="min-width: 0;">
+                            <div style="font-weight: 700; color: #fff; line-height: 1.2;">{row["Room"]}</div>
+                            <div style="margin-top: 4px;"><span class="status-pill {status_class}">{status}</span></div>
                         </div>
                     </div>
                 </td>
-                <td style="width: 50%;">{times_html}</td>
+                <td style="width: 55%; vertical-align: top;">{times_html}</td>
             </tr>
             """
         html_output += "</table>"
 
     html_output += '</div>'
     
-    # Calculate approximate height based on number of rows
-    row_count = len(df)
-    venue_count = len(grouped)
-    calc_height = (row_count * 90) + (venue_count * 100) + 50
-    
-    st.iframe(html_output, height=calc_height)
+    # Render directly to page to ensure single scroll
+    st.markdown(html_output, unsafe_allow_html=True)
 
 # Logic to handle persistent display
 if check_button:
