@@ -25,10 +25,9 @@ install_playwright()
 from playwright.async_api import async_playwright
 import check_availability as scraper
 
-# Dynamic concurrency limit for Streamlit Cloud (approx 1 core per 1GB RAM)
-# We aim for roughly 1.5 parallel browsers per core, with a floor of 2.
-CPU_COUNT = multiprocessing.cpu_count()
-MAX_CONCURRENCY = max(2, math.floor(CPU_COUNT * 1.5))
+# HARD-CAP concurrency for Streamlit Cloud stability (RAM is limited)
+# Even if CPU count is high, we limit parallel browsers to avoid OOM crashes.
+MAX_CONCURRENCY = 3
 
 st.set_page_config(
     page_title="Reno Escape Finder",
@@ -297,14 +296,20 @@ async def run_scrapers(target_date):
                             await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
                             try:
                                 res = await f(page, target_date, *args, **kwargs)
-                                return n, res
+                                # Check if any of the results indicated a bot check
+                                final_res = []
+                                for r in res:
+                                    if "BOT CHECK" in str(r.get("status", "")).upper():
+                                        final_res.append({"room": "Security Override", "status": "LINK BLOCKED", "times": []})
+                                    else:
+                                        final_res.append(r)
+                                return n, final_res
                             except Exception as e:
-                                # Capture specific bot check or timeout indicators
                                 err_msg = str(e).lower()
                                 status = "OFFLINE"
                                 if "timeout" in err_msg: status = "TIMEOUT"
-                                elif "closed" in err_msg: status = "SERVER BUSY"
-                                return n, [{"room": "Connection Error", "status": status, "times": []}]
+                                elif "closed" in err_msg: status = "TERMINATED"
+                                return n, [{"room": "Link Error", "status": status, "times": []}]
                             finally:
                                 if browser.is_connected():
                                     await page.close()
