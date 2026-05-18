@@ -221,12 +221,8 @@ st.markdown('<br>', unsafe_allow_html=True)
 # Placeholder for results
 results_container = st.empty()
 
-# Manual entries (venues that don't support automated scraping)
-MANUAL_VENUES = [
-    {"Venue": "Brainy Actz Escape Rooms", "Room": "—", "Status": "Manual Only", "Time Slots": "Call (775) 225-2320"},
-    {"Venue": "Escape 36 (Carson City)", "Room": "—", "Status": "Manual Only", "Time Slots": "Call (775) 434-7774"},
-    {"Venue": "Virginia City Escape Room", "Room": "—", "Status": "Manual Only", "Time Slots": "Call (775) 434-3151"},
-]
+# Manual entries - REMOVED for full automation focus
+MANUAL_VENUES = []
 
 # Persistence: Initialize session state for results
 if "search_results" not in st.session_state:
@@ -243,11 +239,6 @@ def format_status(status):
 
 # Venue booking URLs for the "Book" button
 BOOKING_URLS = {name: url for name, url in scraper.VENUES}
-BOOKING_URLS.update({
-    "Brainy Actz Escape Rooms": "https://brainyactz.com/locations/reno-nv/",
-    "Escape 36 (Carson City)": "https://escape36.com/",
-    "Virginia City Escape Room": "https://www.virginiacityescaperooms.com/"
-})
 
 async def run_scrapers(target_date):
     all_data = []
@@ -279,22 +270,27 @@ async def run_scrapers(target_date):
                 async def wrapped_scrape(n=name, f=fn, args=a, kwargs=kw):
                     async with semaphore: # Respect the dynamic resource limit
                         try:
+                            # Increased timeout for cloud environment
                             page = await context.new_page()
+                            page.set_default_timeout(45000) 
                             await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
                             try:
                                 res = await f(page, target_date, *args, **kwargs)
                                 return n, res
                             except Exception as e:
-                                return n, [{"room": "Error", "status": "Error loading", "times": []}]
+                                # Capture specific bot check or timeout indicators
+                                err_msg = str(e).lower()
+                                status = "OFFLINE"
+                                if "timeout" in err_msg: status = "TIMEOUT"
+                                elif "closed" in err_msg: status = "SERVER BUSY"
+                                return n, [{"room": "Connection Error", "status": status, "times": []}]
                             finally:
-                                # Ensure we don't try to close a page if the browser is gone
                                 if browser.is_connected():
                                     await page.close()
                         except asyncio.CancelledError:
                             raise
                         except Exception:
-                            return n, [{"room": "Error", "status": "Error loading", "times": []}]
-                
+                            return n, [{"room": "System Error", "status": "OFFLINE", "times": []}]
                 tasks.append(asyncio.create_task(wrapped_scrape()))
 
             try:
