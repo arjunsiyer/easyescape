@@ -345,8 +345,35 @@ def render_results(df):
     if df is None or df.empty:
         return
 
-    # Use a single compact string to prevent Streamlit from misinterpreting as code blocks
-    html_output = '<div class="results-wrapper">'
+    # Script for interactivity and persistence
+    script_and_style = """
+    <script>
+    function toggleComplete(id) {
+        const row = document.getElementById('row-' + id);
+        const checkbox = document.getElementById('cb-' + id);
+        const isCompleted = checkbox.checked;
+        if (isCompleted) { row.classList.add('completed'); } 
+        else { row.classList.remove('completed'); }
+        let stored = JSON.parse(localStorage.getItem('easyescape_history') || '{}');
+        stored[id] = isCompleted;
+        localStorage.setItem('easyescape_history', JSON.stringify(stored));
+    }
+    function restoreState() {
+        let stored = JSON.parse(localStorage.getItem('easyescape_history') || '{}');
+        for (const [id, isCompleted] of Object.entries(stored)) {
+            if (isCompleted) {
+                const row = document.getElementById('row-' + id);
+                const checkbox = document.getElementById('cb-' + id);
+                if (row && checkbox) { row.classList.add('completed'); checkbox.checked = true; }
+            }
+        }
+    }
+    // Run after a short delay to ensure elements are in DOM
+    setTimeout(restoreState, 100);
+    </script>
+    """
+
+    html_output = script_and_style + '<div class="results-wrapper">'
     
     grouped = df.groupby("Venue", sort=False)
     for venue, group in grouped:
