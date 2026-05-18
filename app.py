@@ -89,17 +89,38 @@ st.markdown("""
         backdrop-filter: blur(10px) !important;
     }
 
-    /* Tactical Date Picker */
-    div[data-baseweb="input"] {
+    /* Aggressive Tactical Date Picker Overrides */
+    div[data-baseweb="input"], 
+    div[data-baseweb="popover"],
+    div[data-baseweb="calendar"] {
         background-color: #000 !important;
         border: 1px solid #00ffcc !important;
         border-radius: 0px !important;
+        color: #00ffcc !important;
+        font-family: 'JetBrains Mono', monospace !important;
     }
-    
+
     div[data-baseweb="input"] input {
         color: #00ffcc !important;
         font-family: 'JetBrains Mono', monospace !important;
-        font-size: 0.9rem !important;
+        background: transparent !important;
+    }
+
+    /* Target the actual selection and calendar elements */
+    [data-baseweb="calendar"] [role="gridcell"] {
+        border-radius: 0px !important;
+        color: #00ffcc !important;
+    }
+
+    [data-baseweb="calendar"] [aria-selected="true"] {
+        background-color: #00ffcc !important;
+        color: #000 !important;
+    }
+
+    [data-baseweb="calendar"] button {
+        color: #00ffcc !important;
+        text-transform: uppercase !important;
+        font-family: 'Orbitron', sans-serif !important;
     }
 
     /* High-Voltage Primary Button */
